@@ -1,0 +1,46 @@
+What:		/sys/class/pmt_telem/
+Date:		September 2019
+KernelVersion:	5.5
+Contact:	David Box <david.e.box@linux.intel.com>
+Description:
+		The pmt_telem/ class directory contains devices that expose
+		hardware telemetry using the Intel Converged Telemetry
+		Aggregator (PMT) architecture.
+
+What:		/sys/class/pmt_telem/telemX
+Date:		September 2019
+KernelVersion:	5.5
+Contact:	David Box <david.e.box@linux.intel.com>
+Description:
+		The telemX directory contains files describing an instance of a
+		PMT telemetry device that exposes hardware telemetry. Each
+		telemX device has an associated /dev/telemX node. This node can
+		be opened and mapped to access the telemetry space of the
+		device. The register layout of the telemetry space is
+		determined from an XML file of specific guid for the corresponding
+		parent device.
+
+What:		/sys/class/pmt_telem/telemX/guid
+Date:		September 2019
+KernelVersion:	5.5
+Contact:	David Box <david.e.box@linux.intel.com>
+Description:
+		(RO) The guid for this telemetry device. The guid identifies
+		the version of the XML file for the parent device that should
+		be used to determine the register layout.
+
+What:		/sys/class/pmt_telem/telemX/size
+Date:		September 2019
+KernelVersion:	5.5
+Contact:	David Box <david.e.box@linux.intel.com>
+Description:
+		(RO) The size of telemetry region in bytes that corresponds to
+		the mapping size for the /dev/telemX device node.
+
+What:		/sys/class/pmt_telem/telemX/offset
+Date:		September 2019
+KernelVersion:	5.5
+Contact:	David Box <david.e.box@linux.intel.com>
+Description:
+		(RO) The offset of telemetry region in bytes that corresponds to
+		the mapping for the /dev/telemX device node.
