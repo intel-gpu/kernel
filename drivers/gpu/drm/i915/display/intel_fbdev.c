@@ -187,6 +187,7 @@ static int intelfb_create(struct drm_fb_helper *helper,
 	unsigned long flags = 0;
 	bool prealloc = false;
 	void __iomem *vaddr;
+	struct drm_i915_gem_object *obj;
 	int ret;
 
 	if (intel_fb &&
@@ -241,13 +242,26 @@ static int intelfb_create(struct drm_fb_helper *helper,
 	info->fbops = &intelfb_ops;
 
 	/* setup aperture base/size for vesafb takeover */
-	info->apertures->ranges[0].base = ggtt->gmadr.start;
-	info->apertures->ranges[0].size = ggtt->mappable_end;
+	obj = intel_fb_obj(&intel_fb->base);
+	if (HAS_LMEM(dev_priv) && i915_gem_object_is_lmem(obj)) {
+		struct intel_memory_region *mem = obj->mm.region;
 
-	/* Our framebuffer is the entirety of fbdev's system memory */
-	info->fix.smem_start =
-		(unsigned long)(ggtt->gmadr.start + vma->node.start);
-	info->fix.smem_len = vma->node.size;
+		info->apertures->ranges[0].base = mem->io_start;
+		info->apertures->ranges[0].size = mem->total;
+
+		/* Use fbdev's framebuffer from lmem for discrete */
+		info->fix.smem_start =
+			(unsigned long)(mem->io_start +  vma->node.start);
+		info->fix.smem_len = vma->node.size;
+	} else {
+		info->apertures->ranges[0].base = ggtt->gmadr.start;
+		info->apertures->ranges[0].size = ggtt->mappable_end;
+
+		/* Our framebuffer is the entirety of fbdev's system memory */
+		info->fix.smem_start =
+			(unsigned long)(ggtt->gmadr.start + vma->node.start);
+		info->fix.smem_len = vma->node.size;
+	}
 
 	vaddr = i915_vma_pin_iomap(vma);
 	if (IS_ERR(vaddr)) {

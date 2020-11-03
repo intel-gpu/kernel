@@ -399,16 +399,37 @@ skl_plane_max_stride(struct intel_plane *plane,
 		     unsigned int rotation)
 {
 	const struct drm_format_info *info = drm_format_info(pixel_format);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	int cpp = info->cpp[0];
+	int max_stride_bytes;
 
-	/*
-	 * "The stride in bytes must not exceed the
-	 * of the size of 8K pixels and 32K bytes."
-	 */
+	if (INTEL_GEN(dev_priv) >= 11) {
+		/*
+		 * The stride in bytes must not exceed the
+		 * size of 8K pixels.
+		 * Linear 64bpp pixel format maximum stride in 64B tiles
+		 * is 1023 long which yield to 65472B long stride.
+		 * x-tiled 64bpp pixel format maximum stride in 512B wide
+		 * tiles is 128 long which yield to 65536B long stride.
+		 * y-tiled 64bpp pixel format maximum stride in 128B wide
+		 * tiles is 512 long which yield to 65536B long stride.
+		 */
+		if (modifier == DRM_FORMAT_MOD_LINEAR)
+			max_stride_bytes = 65536 - 64;
+		else
+			max_stride_bytes = 65536;
+	} else {
+		/*
+		 * "The stride in bytes must not exceed the
+		 * of the size of 8K pixels and 32K bytes."
+		 */
+		max_stride_bytes = 32768;
+	}
+
 	if (drm_rotation_90_or_270(rotation))
-		return min(8192, 32768 / cpp);
+		return min(8192, max_stride_bytes / cpp);
 	else
-		return min(8192 * cpp, 32768);
+		return min(8192 * cpp, max_stride_bytes);
 }
 
 static void

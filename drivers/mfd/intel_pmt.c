@@ -40,6 +40,10 @@ static const struct pmt_platform_info dg1_info = {
 	.capabilities = dg1_capabilities,
 };
 
+static const struct pmt_platform_info tgl_info = {
+	.quirks = PMT_QUIRK_NO_WATCHER | PMT_QUIRK_NO_CRASHLOG,
+};
+
 static const struct pmt_platform_info pmt_info = {
 };
 
@@ -56,9 +60,17 @@ pmt_add_dev(struct pci_dev *pdev, struct intel_dvsec_header *header,
 		name = TELEM_DEV_NAME;
 		break;
 	case DVSEC_INTEL_ID_WATCHER:
+		if (info->quirks && PMT_QUIRK_NO_WATCHER) {
+			dev_info(&pdev->dev, "PMT Watcher not supported\n");
+			return 0;
+		}
 		name = WATCHER_DEV_NAME;
 		break;
 	case DVSEC_INTEL_ID_CRASHLOG:
+		if (info->quirks && PMT_QUIRK_NO_WATCHER) {
+			dev_info(&pdev->dev, "PMT Crashlog not supported\n");
+			return 0;
+		}
 		name = CRASHLOG_DEV_NAME;
 		break;
 	default:
@@ -182,7 +194,9 @@ static void pmt_pci_remove(struct pci_dev *pdev)
 
 static const struct pci_device_id pmt_pci_ids[] = {
 	/* TGL */
-	{ PCI_VDEVICE(INTEL, 0x9a0d), (kernel_ulong_t)&pmt_info },
+	{ PCI_VDEVICE(INTEL, 0x9a0d), (kernel_ulong_t)&tgl_info },
+	/* OOBMSM */
+	{ PCI_VDEVICE(INTEL, 0x09a7), (kernel_ulong_t)&pmt_info },
 	/* DG1 */
 	{ PCI_VDEVICE(INTEL, 0x490e), (kernel_ulong_t)&dg1_info },
 	{ }

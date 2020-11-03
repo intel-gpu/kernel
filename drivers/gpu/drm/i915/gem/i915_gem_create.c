@@ -51,8 +51,8 @@ i915_gem_create(struct drm_file *file,
 		return PTR_ERR(obj);
 
 	if (i915_gem_object_is_lmem(obj)) {
-		struct drm_i915_private *i915 = to_i915(obj->base.dev);
-		struct intel_context *ce = i915->engine[BCS0]->blitter_context;
+		struct intel_gt *gt = obj->mm.region->gt;
+		struct intel_context *ce = gt->engine[BCS0]->blitter_context;
 
 		/*
 		 * XXX: We really want to move this to get_pages(), but we

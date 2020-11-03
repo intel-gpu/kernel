@@ -99,6 +99,7 @@ struct intel_memory_region {
 	u16 instance;
 	enum intel_region_id id;
 	char name[16];
+	struct intel_gt *gt; /* GT closest to this region. */
 	bool is_devmem;	/* true for device memory */
 
 	struct list_head reserved;

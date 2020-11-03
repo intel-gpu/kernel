@@ -225,22 +225,22 @@ __i915_gem_object_unset_pages(struct drm_i915_gem_object *obj)
 	return pages;
 }
 
-int __i915_gem_object_put_pages(struct drm_i915_gem_object *obj)
+/*
+ * Caller must lock the object before calling this function.
+ */
+int ____i915_gem_object_put_pages(struct drm_i915_gem_object *obj)
 {
 	struct sg_table *pages;
-	int err;
+
+	lockdep_assert_held(&obj->mm.lock);
 
 	if (i915_gem_object_has_pinned_pages(obj))
 		return -EBUSY;
 
 	GEM_BUG_ON(atomic_read(&obj->bind_count));
 
-	/* May be called by shrinker from within get_pages() (on another bo) */
-	mutex_lock(&obj->mm.lock);
-	if (unlikely(atomic_read(&obj->mm.pages_pin_count))) {
-		err = -EBUSY;
-		goto unlock;
-	}
+	if (unlikely(atomic_read(&obj->mm.pages_pin_count)))
+		return -EBUSY;
 
 	i915_gem_object_release_mmap_offset(obj);
 
@@ -263,8 +263,16 @@ int __i915_gem_object_put_pages(struct drm_i915_gem_object *obj)
 	if (!IS_ERR(pages))
 		obj->ops->put_pages(obj, pages);
 
-	err = 0;
-unlock:
+	return 0;
+}
+
+int __i915_gem_object_put_pages(struct drm_i915_gem_object *obj)
+{
+	int err;
+
+	/* May be called by shrinker from within get_pages() (on another bo) */
+	mutex_lock(&obj->mm.lock);
+	err = ____i915_gem_object_put_pages(obj);
 	mutex_unlock(&obj->mm.lock);
 
 	return err;

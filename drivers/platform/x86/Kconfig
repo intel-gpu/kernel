@@ -1234,6 +1234,24 @@ config INTEL_PMT_TELEM
 	 For more information, see
 	 <file:Documentation/ABI/testing/sysfs-class-pmt_telem>
 
+config INTEL_PMT_CRASHLOG
+	tristate "Intel PMT crashlog driver"
+	help
+	 The Intel PMT crashlog driver provides access to hardware crashlog
+	 capabilities on devices that support the feature.
+
+	 For more information, see
+	 <file:Documentation/ABI/testing/sysfs-class-pmt_crashlog>
+
+config INTEL_PMT_WATCHER
+	tristate "Intel PMT watcher driver"
+	help
+	 The Intel PMT Watcher driver provides access to hardware sampling and
+	 tracing capabilities on devices that support the feature.
+
+	 For more information, see
+	 <file:Documentation/ABI/testing/sysfs-class-pmt_watcher>
+
 config MLX_PLATFORM
 	tristate "Mellanox Technologies platform support"
 	depends on I2C && REGMAP

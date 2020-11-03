@@ -29,6 +29,12 @@ struct intel_dvsec_header {
 };
 
 enum pmt_quirks {
+	/* Watcher capabilty not supported */
+	PMT_QUIRK_NO_WATCHER	= (1 << 0),
+
+	/* Crashlog capability not supported */
+	PMT_QUIRK_NO_CRASHLOG	= (1 << 1),
+
 	/* DVSEC PCI capabilty not preset (must be emulated) */
 	PMT_QUIRK_NO_DVSEC	= (1 << 2),
 };

@@ -47,21 +47,6 @@ static bool can_release_pages(struct drm_i915_gem_object *obj)
 	return swap_available() || obj->mm.madv == I915_MADV_DONTNEED;
 }
 
-static bool unsafe_drop_pages(struct drm_i915_gem_object *obj,
-			      unsigned long shrink)
-{
-	unsigned long flags;
-
-	flags = 0;
-	if (shrink & I915_SHRINK_ACTIVE)
-		flags = I915_GEM_OBJECT_UNBIND_ACTIVE;
-
-	if (i915_gem_object_unbind(obj, flags) == 0)
-		__i915_gem_object_put_pages(obj);
-
-	return !i915_gem_object_has_pages(obj);
-}
-
 static void try_to_writeback(struct drm_i915_gem_object *obj,
 			     unsigned int flags)
 {
@@ -74,6 +59,29 @@ static void try_to_writeback(struct drm_i915_gem_object *obj,
 
 	if (flags & I915_SHRINK_WRITEBACK)
 		i915_gem_object_writeback(obj);
+}
+
+static void unsafe_drop_pages(struct drm_i915_gem_object *obj,
+			      unsigned long shrink, unsigned long *count)
+{
+	unsigned long flags;
+
+	flags = 0;
+	if (shrink & I915_SHRINK_ACTIVE)
+		flags = I915_GEM_OBJECT_UNBIND_ACTIVE;
+
+	if (i915_gem_object_unbind(obj, flags))
+		return;
+
+	if (!mutex_trylock(&obj->mm.lock))
+		return;
+
+	____i915_gem_object_put_pages(obj);
+	if (!i915_gem_object_has_pages(obj)) {
+		try_to_writeback(obj, shrink);
+		*count += obj->base.size >> PAGE_SHIFT;
+	}
+	mutex_unlock(&obj->mm.lock);
 }
 
 /**
@@ -207,15 +215,7 @@ i915_gem_shrink(struct drm_i915_private *i915,
 
 			spin_unlock_irqrestore(&i915->mm.obj_lock, flags);
 
-			if (unsafe_drop_pages(obj, shrink)) {
-				/* May arrive from get_pages on another bo */
-				mutex_lock(&obj->mm.lock);
-				if (!i915_gem_object_has_pages(obj)) {
-					try_to_writeback(obj, shrink);
-					count += obj->base.size >> PAGE_SHIFT;
-				}
-				mutex_unlock(&obj->mm.lock);
-			}
+			unsafe_drop_pages(obj, shrink, &count);
 
 			scanned += obj->base.size >> PAGE_SHIFT;
 			i915_gem_object_put(obj);
