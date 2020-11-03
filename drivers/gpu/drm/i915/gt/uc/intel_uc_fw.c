@@ -48,7 +48,7 @@ void intel_uc_fw_change_status(struct intel_uc_fw *uc_fw,
  * Note that RKL uses the same firmware as TGL.
  */
 #define INTEL_UC_FIRMWARE_DEFS(fw_def, guc_def, huc_def) \
-	fw_def(DG1,         0, guc_def(dg1, 48, 0, 0), huc_def(dg1,  7, 2, 0)) \
+	fw_def(DG1,         0, guc_def(dg1, 48, 0, 0), huc_def(dg1,  7, 7, 0)) \
 	fw_def(ROCKETLAKE,  0, guc_def(tgl, 48, 0, 0), huc_def(tgl,  7, 0, 12)) \
 	fw_def(TIGERLAKE,   0, guc_def(tgl, 48, 0, 0), huc_def(tgl,  7, 0, 12)) \
 	fw_def(ELKHARTLAKE, 0, guc_def(ehl, 48, 0, 0), huc_def(ehl,  9, 0, 0)) \
