@@ -2,16 +2,18 @@
 /*
  * Copyright(c) 2019-2020, Intel Corporation. All rights reserved.
  */
+
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
-#include <linux/ioport.h>
+#include <linux/io.h>
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/sizes.h>
 #include <linux/io-64-nonatomic-lo-hi.h>
 #include <linux/platform_device.h>
+#include <linux/delay.h>
 #include <spi/intel_spi.h>
 
 #include <linux/mtd/mtd.h>
@@ -60,6 +62,7 @@ struct i915_spi {
 #define FLREG(__n)  (FRBA + ((__n) * 4))
 /*  Flash Map 1 Register */
 #define FLMAP1_REG  0x18
+#define FLMSTR4_OFFSET 0x00C
 
 #define SPI_ACCESS_ERROR_PCIE_MASK 0x7
 
@@ -119,22 +122,24 @@ static void spi_write64(struct i915_spi *spi, u32 address, u64 data)
 static int spi_get_access_map(struct i915_spi *spi)
 {
 	u32 flmap1;
-	u32 fmstr1;
-	u32 fmstr1_addr;
+	u32 fmba;
+	u32 fmstr4;
+	u32 fmstr4_addr;
 
 	spi_set_region_id(spi, REGION_ID_DESCRIPTOR);
 
 	flmap1 = spi_read32(spi, FLMAP1_REG);
 	if (spi_error(spi))
 		return -EIO;
+	/* Get Flash Master Baser Address (FMBA) */
+	fmba = ((flmap1 & SPI_MAP_ADDR_MASK) << SPI_MAP_ADDR_SHIFT);
+	fmstr4_addr = fmba + FLMSTR4_OFFSET;
 
-	fmstr1_addr = (flmap1 & SPI_MAP_ADDR_MASK) << SPI_MAP_ADDR_SHIFT;
-
-	fmstr1 = spi_read32(spi, fmstr1_addr);
+	fmstr4 = spi_read32(spi, fmstr4_addr);
 	if (spi_error(spi))
 		return -EIO;
 
-	spi->access_map = fmstr1;
+	spi->access_map = fmstr4;
 	return 0;
 }
 
@@ -170,13 +175,12 @@ static int i915_spi_is_valid(struct i915_spi *spi)
 	return 0;
 }
 
-static unsigned int spi_get_region(const struct i915_spi *spi,
-				   loff_t from, size_t len)
+static unsigned int spi_get_region(const struct i915_spi *spi, loff_t from)
 {
 	unsigned int i;
 
 	for (i = 0; i < spi->nregions; i++) {
-		if ((spi->regions[i].offset + spi->regions[i].size) > from &&
+		if ((spi->regions[i].offset + spi->regions[i].size - 1) > from &&
 		    spi->regions[i].offset <= from)
 			break;
 	}
@@ -241,7 +245,7 @@ static ssize_t spi_read(struct i915_spi *spi, u8 region,
 			return -EIO;
 		memcpy(&buf[i], &data, sizeof(data));
 		i += sizeof(u32);
-		len4 -= sizeof(32);
+		len4 -= sizeof(u32);
 	}
 
 	if (len4 > 0) {
@@ -265,10 +269,10 @@ spi_erase(struct i915_spi *spi, u8 region, loff_t from, u64 len, u64 *fail_addr)
 	for (i = 0; i < len; i += SZ_4K) {
 		iowrite32(from + i, base + SPI_ADDRESS_REG);
 		iowrite32(region << 24 | block, base + SPI_ERASE_REG);
-		if (spi_error(spi)) {
-			*fail_addr = from + i;
-			return -EIO;
-		}
+		/* Since the writes are via sguint
+		 * we cannot do back to back erases.
+		 */
+		msleep(50);
 	}
 	return len;
 }
@@ -314,7 +318,7 @@ static int i915_spi_init(struct i915_spi *spi, struct device *device)
 			spi->size = limit;
 
 		spi->regions[i].offset = base;
-		spi->regions[i].size = limit - base;
+		spi->regions[i].size = limit - base + 1;
 		/* No write access to descriptor; mask it out*/
 		spi->regions[i].is_writable = spi_region_writeable(spi, id);
 
@@ -344,49 +348,72 @@ static int i915_spi_init(struct i915_spi *spi, struct device *device)
 static int i915_spi_erase(struct mtd_info *mtd, struct erase_info *info)
 {
 	struct i915_spi *spi;
-	ssize_t ret;
 	unsigned int idx;
 	u8 region;
 	u64 addr;
+	ssize_t bytes;
+	loff_t from;
+	size_t len;
+	size_t total_len;
+	int ret = 0;
 
-	if (!mtd)
+	if (!mtd || !info)
 		return -EINVAL;
 
 	spi = mtd->priv;
 
 	if (!IS_ALIGNED(info->addr, SZ_4K) || !IS_ALIGNED(info->len, SZ_4K)) {
-		dev_err(&mtd->dev, "unaligned erase %lld %lld\n",
+		dev_err(&mtd->dev, "unaligned erase %llx %llx\n",
 			info->addr, info->len);
 		info->fail_addr = MTD_FAIL_ADDR_UNKNOWN;
 		return -EINVAL;
 	}
 
-	idx = spi_get_region(spi, info->addr, info->len);
-
-	dev_dbg(&mtd->dev, "erasing region[%d] %s from %lld len %lld\n",
-		spi->regions[idx].id, spi->regions[idx].name,
-		info->addr, info->len);
-
-	if (idx >= spi->nregions) {
-		dev_err(&mtd->dev, "out of range");
-		info->fail_addr = MTD_FAIL_ADDR_UNKNOWN;
-		return -ERANGE;
-	}
-
-	addr = info->addr - spi->regions[idx].offset;
-	region = spi->regions[idx].id;
+	total_len = info->len;
+	addr = info->addr;
 
 	if (!mutex_trylock(&spi->lock))
 		return -EBUSY;
 
-	ret = spi_erase(spi, region, addr, info->len, &info->fail_addr);
-	if (ret < 0) {
-		mutex_unlock(&spi->lock);
-		return ret;
+	while (total_len > 0) {
+		if (!IS_ALIGNED(addr, SZ_4K) || !IS_ALIGNED(total_len, SZ_4K)) {
+			dev_err(&mtd->dev, "unaligned erase %llx %zx\n", addr, total_len);
+			info->fail_addr = addr;
+			ret = -ERANGE;
+			goto out;
+		}
+
+		idx = spi_get_region(spi, addr);
+		if (idx >= spi->nregions) {
+			dev_err(&mtd->dev, "out of range");
+			info->fail_addr = MTD_FAIL_ADDR_UNKNOWN;
+			ret = -ERANGE;
+			goto out;
+		}
+
+		from = addr - spi->regions[idx].offset;
+		region = spi->regions[idx].id;
+		len = total_len;
+		if (len > spi->regions[idx].size - from)
+			len = spi->regions[idx].size - from;
+
+		dev_dbg(&mtd->dev, "erasing region[%d] %s from %llx len %zx\n",
+			region, spi->regions[idx].name, from, len);
+
+		bytes = spi_erase(spi, region, from, len, &info->fail_addr);
+		if (bytes < 0) {
+			info->fail_addr += spi->regions[idx].offset;
+			ret = bytes;
+			goto out;
+		}
+
+		addr += len;
+		total_len -= len;
 	}
 
+out:
 	mutex_unlock(&spi->lock);
-	return 0;
+	return ret;
 }
 
 static int i915_spi_read(struct mtd_info *mtd, loff_t from, size_t len,
@@ -407,7 +434,7 @@ static int i915_spi_read(struct mtd_info *mtd, loff_t from, size_t len,
 		return -EINVAL;
 	}
 
-	idx = spi_get_region(spi, from, len);
+	idx = spi_get_region(spi, from);
 
 	dev_dbg(&mtd->dev, "reading region[%d] %s from %lld len %zd\n",
 		spi->regions[idx].id, spi->regions[idx].name, from, len);
@@ -419,6 +446,8 @@ static int i915_spi_read(struct mtd_info *mtd, loff_t from, size_t len,
 
 	from -= spi->regions[idx].offset;
 	region = spi->regions[idx].id;
+	if (len > spi->regions[idx].size - from)
+		len = spi->regions[idx].size - from;
 
 	if (!mutex_trylock(&spi->lock))
 		return -EBUSY;
@@ -453,7 +482,7 @@ static int i915_spi_write(struct mtd_info *mtd, loff_t to, size_t len,
 		return -EINVAL;
 	}
 
-	idx = spi_get_region(spi, to, len);
+	idx = spi_get_region(spi, to);
 
 	dev_dbg(&mtd->dev, "writing region[%d] %s to %lld len %zd\n",
 		spi->regions[idx].id, spi->regions[idx].name, to, len);
@@ -465,6 +494,8 @@ static int i915_spi_write(struct mtd_info *mtd, loff_t to, size_t len,
 
 	to -= spi->regions[idx].offset;
 	region = spi->regions[idx].id;
+	if (len > spi->regions[idx].size - to)
+		len = spi->regions[idx].size - to;
 
 	if (!mutex_trylock(&spi->lock))
 		return -EBUSY;
@@ -514,7 +545,7 @@ static int i915_spi_init_mtd(struct i915_spi *spi, struct device *device,
 			continue;
 		parts[n].name = spi->regions[i].name;
 		parts[n].offset  = spi->regions[i].offset;
-		parts[n].size = spi->regions[i].size + 1;
+		parts[n].size = spi->regions[i].size;
 		if (!spi->regions[i].is_writable)
 			parts[n].mask_flags = MTD_WRITEABLE;
 		n++;

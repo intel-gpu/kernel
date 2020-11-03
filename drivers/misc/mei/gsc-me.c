@@ -87,11 +87,9 @@ static int mei_gsc_probe(struct platform_device *platdev)
 	pm_runtime_set_active(device);
 	pm_runtime_enable(device);
 
-	if (mei_start(dev)) {
-		dev_err(device, "init hw failure.\n");
-		ret = -ENODEV;
-		goto err;
-	}
+	/* continue here to provide auxiliary data to the user-space */
+	if (mei_start(dev))
+		dev_warn(device, "init hw failure.\n");
 
 	pm_runtime_set_autosuspend_delay(device, MEI_GSC_RPM_TIMEOUT);
 	pm_runtime_use_autosuspend(device);
@@ -100,7 +98,6 @@ static int mei_gsc_probe(struct platform_device *platdev)
 	if (ret)
 		goto register_err;
 
-	dev_err(device, "probe completed succefully\n");
 	return 0;
 
 register_err:

@@ -59,12 +59,14 @@ static struct mfd_cell intel_gsc_cell[] = {
 		.name = "mei-gsc",
 		.num_resources = ARRAY_SIZE(gsc_resources),
 		.resources  = gsc_resources,
+		.pm_runtime_no_callbacks = true,
 	},
 	{
 		.id = 1,
 		.name = "mei-gscfi",
 		.num_resources = ARRAY_SIZE(gscfi_resources),
 		.resources  = gscfi_resources,
+		.pm_runtime_no_callbacks = true,
 	}
 };
 

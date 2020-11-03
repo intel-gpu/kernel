@@ -35,8 +35,8 @@ void intel_spi_init(struct intel_spi *spi, struct drm_i915_private *dev_priv)
 	struct pci_dev *pdev = dev_priv->drm.pdev;
 	int ret;
 
-	/* Only the DGFX devces have internal SPI */
-	if (!IS_DGFX(dev_priv))
+	/* Only the DGFX devices with display have internal SPI */
+	if (!IS_DGFX(dev_priv) || !HAS_DISPLAY(dev_priv))
 		return;
 
 	ret = mfd_add_devices(&pdev->dev, PLATFORM_DEVID_AUTO,
