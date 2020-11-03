@@ -642,7 +642,7 @@ static int gen8_init_scratch(struct i915_address_space *vm)
 		return 0;
 	}
 
-	ret = setup_scratch_page(vm, __GFP_HIGHMEM);
+	ret = setup_scratch_page(vm, GFP_KERNEL|__GFP_HIGHMEM);
 	if (ret)
 		return ret;
 
