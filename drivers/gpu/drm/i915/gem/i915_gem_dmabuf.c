@@ -27,6 +27,11 @@ static struct sg_table *i915_gem_map_dma_buf(struct dma_buf_attachment *attachme
 	struct scatterlist *src, *dst;
 	int ret, i;
 
+	if (i915_gem_object_is_lmem(obj)) {
+		ret = -ENOTSUPP;
+		goto err;
+	}
+
 	ret = i915_gem_object_pin_pages(obj);
 	if (ret)
 		goto err;

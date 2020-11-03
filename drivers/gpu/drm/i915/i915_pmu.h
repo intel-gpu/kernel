@@ -45,11 +45,14 @@ struct i915_pmu {
 		struct hlist_node node;
 		unsigned int cpu;
 	} cpuhp;
-
 	/**
 	 * @base: PMU base.
 	 */
 	struct pmu base;
+	/**
+	 * @closed: i915 is unregistering.
+	 */
+	bool closed;
 	/**
 	 * @name: Name as registered with perf core.
 	 */

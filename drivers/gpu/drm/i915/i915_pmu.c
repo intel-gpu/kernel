@@ -447,6 +447,7 @@ static void i915_pmu_event_destroy(struct perf_event *event)
 
 	drm_WARN_ON(&i915->drm, event->parent);
 
+	drm_dev_put(&i915->drm);
 }
 
 static int
@@ -512,7 +513,11 @@ static int i915_pmu_event_init(struct perf_event *event)
 {
 	struct drm_i915_private *i915 =
 		container_of(event->pmu, typeof(*i915), pmu.base);
+	struct i915_pmu *pmu = &i915->pmu;
 	int ret;
+
+	if (pmu->closed)
+		return -ENODEV;
 
 	if (event->attr.type != event->pmu->type)
 		return -ENOENT;
@@ -538,8 +543,10 @@ static int i915_pmu_event_init(struct perf_event *event)
 	if (ret)
 		return ret;
 
-	if (!event->parent)
+	if (!event->parent) {
+		drm_dev_get(&i915->drm);
 		event->destroy = i915_pmu_event_destroy;
+	}
 
 	return 0;
 }
@@ -593,9 +600,16 @@ static u64 __i915_pmu_event_read(struct perf_event *event)
 
 static void i915_pmu_event_read(struct perf_event *event)
 {
+	struct drm_i915_private *i915 =
+		container_of(event->pmu, typeof(*i915), pmu.base);
 	struct hw_perf_event *hwc = &event->hw;
+	struct i915_pmu *pmu = &i915->pmu;
 	u64 prev, new;
 
+	if (pmu->closed) {
+		event->hw.state = PERF_HES_STOPPED;
+		return;
+	}
 again:
 	prev = local64_read(&hwc->prev_count);
 	new = __i915_pmu_event_read(event);
@@ -723,6 +737,13 @@ static void i915_pmu_disable(struct perf_event *event)
 
 static void i915_pmu_event_start(struct perf_event *event, int flags)
 {
+	struct drm_i915_private *i915 =
+		container_of(event->pmu, typeof(*i915), pmu.base);
+	struct i915_pmu *pmu = &i915->pmu;
+
+	if (pmu->closed)
+		return;
+
 	i915_pmu_enable(event);
 	event->hw.state = 0;
 }
@@ -737,6 +758,13 @@ static void i915_pmu_event_stop(struct perf_event *event, int flags)
 
 static int i915_pmu_event_add(struct perf_event *event, int flags)
 {
+	struct drm_i915_private *i915 =
+		container_of(event->pmu, typeof(*i915), pmu.base);
+	struct i915_pmu *pmu = &i915->pmu;
+
+	if (pmu->closed)
+		return -ENODEV;
+
 	if (flags & PERF_EF_START)
 		i915_pmu_event_start(event, flags);
 
@@ -1023,6 +1051,13 @@ static int i915_pmu_cpu_offline(unsigned int cpu, struct hlist_node *node)
 
 	GEM_BUG_ON(!pmu->base.event_init);
 
+	/*
+	 * Unregistering an instance generates a CPU offline event which we must
+	 * ignore to avoid incorrectly modifying the shared i915_pmu_cpumask.
+	 */
+	if (pmu->closed)
+		return 0;
+
 	if (cpumask_test_and_clear_cpu(cpu, &i915_pmu_cpumask)) {
 		target = cpumask_any_but(topology_sibling_cpumask(cpu), cpu);
 
@@ -1174,7 +1209,13 @@ void i915_pmu_unregister(struct drm_i915_private *i915)
 	if (!pmu->base.event_init)
 		return;
 
-	drm_WARN_ON(&i915->drm, pmu->enable);
+	/*
+	 * "Disconnect" the PMU callbacks - since all are atomic synchronize_rcu
+	 * ensures all currently executing ones will have exited before we
+	 * proceed with unregistration.
+	 */
+	pmu->closed = true;
+	synchronize_rcu();
 
 	hrtimer_cancel(&pmu->timer);
 
