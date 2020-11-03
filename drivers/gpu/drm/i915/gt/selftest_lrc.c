@@ -787,7 +787,7 @@ create_rewinder(struct intel_context *ce,
 			goto err;
 	}
 
-	cs = intel_ring_begin(rq, 14);
+	cs = intel_ring_begin(rq, 10);
 	if (IS_ERR(cs)) {
 		err = PTR_ERR(cs);
 		goto err;
@@ -799,8 +799,8 @@ create_rewinder(struct intel_context *ce,
 	*cs++ = MI_SEMAPHORE_WAIT |
 		MI_SEMAPHORE_GLOBAL_GTT |
 		MI_SEMAPHORE_POLL |
-		MI_SEMAPHORE_SAD_GTE_SDD;
-	*cs++ = idx;
+		MI_SEMAPHORE_SAD_NEQ_SDD;
+	*cs++ = 0;
 	*cs++ = offset;
 	*cs++ = 0;
 
@@ -808,11 +808,6 @@ create_rewinder(struct intel_context *ce,
 	*cs++ = i915_mmio_reg_offset(RING_TIMESTAMP(rq->engine->mmio_base));
 	*cs++ = offset + idx * sizeof(u32);
 	*cs++ = 0;
-
-	*cs++ = MI_STORE_DWORD_IMM_GEN4 | MI_USE_GGTT;
-	*cs++ = offset;
-	*cs++ = 0;
-	*cs++ = idx + 1;
 
 	intel_ring_advance(rq, cs);
 
@@ -847,7 +842,7 @@ static int live_timeslice_rewind(void *arg)
 
 	for_each_engine(engine, gt, id) {
 		enum { A1, A2, B1 };
-		enum { X = 1, Z, Y };
+		enum { X = 1, Y, Z };
 		struct i915_request *rq[3] = {};
 		struct intel_context *ce;
 		unsigned long timeslice;
@@ -879,13 +874,13 @@ static int live_timeslice_rewind(void *arg)
 			goto err;
 		}
 
-		rq[0] = create_rewinder(ce, NULL, slot, X);
+		rq[0] = create_rewinder(ce, NULL, slot, 1);
 		if (IS_ERR(rq[0])) {
 			intel_context_put(ce);
 			goto err;
 		}
 
-		rq[1] = create_rewinder(ce, NULL, slot, Y);
+		rq[1] = create_rewinder(ce, NULL, slot, 2);
 		intel_context_put(ce);
 		if (IS_ERR(rq[1]))
 			goto err;
@@ -903,7 +898,7 @@ static int live_timeslice_rewind(void *arg)
 			goto err;
 		}
 
-		rq[2] = create_rewinder(ce, rq[0], slot, Z);
+		rq[2] = create_rewinder(ce, rq[0], slot, 3);
 		intel_context_put(ce);
 		if (IS_ERR(rq[2]))
 			goto err;
@@ -917,12 +912,15 @@ static int live_timeslice_rewind(void *arg)
 		GEM_BUG_ON(!timer_pending(&engine->execlists.timer));
 
 		/* ELSP[] = { { A:rq1, A:rq2 }, { B:rq1 } } */
-		if (i915_request_is_active(rq[A2])) { /* semaphore yielded! */
-			/* Wait for the timeslice to kick in */
-			del_timer(&engine->execlists.timer);
-			tasklet_hi_schedule(&engine->execlists.tasklet);
-			intel_engine_flush_submission(engine);
-		}
+		GEM_BUG_ON(!i915_request_is_active(rq[A1]));
+		GEM_BUG_ON(!i915_request_is_active(rq[A2]));
+		GEM_BUG_ON(!i915_request_is_active(rq[B1]));
+
+		/* Wait for the timeslice to kick in */
+		del_timer(&engine->execlists.timer);
+		tasklet_hi_schedule(&engine->execlists.tasklet);
+		intel_engine_flush_submission(engine);
+
 		/* -> ELSP[] = { { A:rq1 }, { B:rq1 } } */
 		GEM_BUG_ON(!i915_request_is_active(rq[A1]));
 		GEM_BUG_ON(!i915_request_is_active(rq[B1]));
@@ -4372,7 +4370,7 @@ static int live_lrc_layout(void *arg)
 	 * match the layout saved by HW.
 	 */
 
-	lrc = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	lrc = (u32 *)__get_free_page(GFP_KERNEL);
 	if (!lrc)
 		return -ENOMEM;
 
@@ -4461,7 +4459,7 @@ static int live_lrc_layout(void *arg)
 			break;
 	}
 
-	kfree(lrc);
+	free_page((unsigned long)lrc);
 	return err;
 }
 

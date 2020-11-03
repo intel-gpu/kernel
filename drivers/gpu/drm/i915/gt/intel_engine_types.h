@@ -162,15 +162,6 @@ struct intel_engine_execlists {
 	u32 ccid;
 
 	/**
-	 * @yield: CCID at the time of the last semaphore-wait interrupt.
-	 *
-	 * Instead of leaving a semaphore busy-spinning on an engine, we would
-	 * like to switch to another ready context, i.e. yielding the semaphore
-	 * timeslice.
-	 */
-	u32 yield;
-
-	/**
 	 * @error_interrupt: CS Master EIR
 	 *
 	 * The CS generates an interrupt when it detects an error. We capture
