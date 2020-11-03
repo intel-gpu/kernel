@@ -129,16 +129,13 @@ static int mei_gsc_remove(struct platform_device *platdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-int mei_gsc_suspend(struct platform_device *platdev, pm_message_t state)
+static int __maybe_unused mei_gsc_pm_suspend(struct device *device)
 {
 	struct mei_device *dev;
-	struct device *device;
 
-	device = &platdev->dev;
 	dev_dbg(device, "suspend\n");
 
-	dev = platform_get_drvdata(platdev);
+	dev = dev_get_drvdata(device);
 	if (!dev)
 		return -ENODEV;
 
@@ -149,16 +146,14 @@ int mei_gsc_suspend(struct platform_device *platdev, pm_message_t state)
 	return 0;
 }
 
-int mei_gsc_resume(struct platform_device *platdev)
+static int __maybe_unused mei_gsc_pm_resume(struct device *device)
 {
 	struct mei_device *dev;
-	struct device *device;
 	int err;
 
-	device = &platdev->dev;
 	dev_dbg(device, "resume\n");
 
-	dev = platform_get_drvdata(platdev);
+	dev = dev_get_drvdata(device);
 	if (!dev)
 		return -ENODEV;
 
@@ -171,10 +166,8 @@ int mei_gsc_resume(struct platform_device *platdev)
 
 	return 0;
 }
-#else /* CONFIG_PM */
-#define mei_gsc_suspend NULL
-#define mei_gsc_resume NULL
-#endif /* CONFIG_PM */
+
+static SIMPLE_DEV_PM_OPS(mei_gsc_pm_ops, mei_gsc_pm_suspend, mei_gsc_pm_resume);
 
 static const struct platform_device_id gsc_devtypes[] = {
 	{
@@ -191,14 +184,13 @@ static const struct platform_device_id gsc_devtypes[] = {
 };
 
 static struct platform_driver mei_gsc_driver = {
+	.probe	= mei_gsc_probe,
+	.remove = mei_gsc_remove,
 	.driver = {
 		.name = "mei-gsc",
 		.owner = THIS_MODULE,
+		.pm = &mei_gsc_pm_ops,
 	},
-	.probe	= mei_gsc_probe,
-	.remove = mei_gsc_remove,
-	.suspend = mei_gsc_suspend,
-	.resume = mei_gsc_resume,
 	.id_table = gsc_devtypes,
 };
 

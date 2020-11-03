@@ -127,9 +127,10 @@ static int spi_get_access_map(struct i915_spi *spi)
 	flmap1 = spi_read32(spi, FLMAP1_REG);
 	if (spi_error(spi))
 		return -EIO;
-	fmstr1_addr = (fmstr1 & SPI_MAP_ADDR_MASK) << SPI_MAP_ADDR_SHIFT;
 
-	fmstr1 = spi_read32(spi, fmstr1);
+	fmstr1_addr = (flmap1 & SPI_MAP_ADDR_MASK) << SPI_MAP_ADDR_SHIFT;
+
+	fmstr1 = spi_read32(spi, fmstr1_addr);
 	if (spi_error(spi))
 		return -EIO;
 
