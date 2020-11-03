@@ -2,8 +2,6 @@
 #ifndef _INTEL_PMT_TELEM_H
 #define _INTEL_PMT_TELEM_H
 
-#include <linux/intel-dvsec.h>
-
 /* Telemetry types */
 #define PMT_TELEM_TELEMETRY	0
 #define PMT_TELEM_CRASHLOG	1
@@ -112,10 +110,31 @@ int pmt_telem_read32(struct telem_endpoint *ep, u32 offset, u32 *data,
  * * -ENODEV	 - The device is not present.
  * * -EINVAL	 - The offset is out out bounds
  * * -EPIPE	 - The device was removed during the read. Data written
- *		   but should be considered not valid.
+ *		   but should be considered invalid.
  */
 int pmt_telem_read64(struct telem_endpoint *ep, u32 offset, u64 *data,
 		     u32 count);
+
+/**
+ * pmt_telem_read() - Read qwords from counter sram using sample id
+ * @ep:     Telemetry endpoint to be read
+ * @id:     The beginning sample id of the metric(s) to be read
+ * @data:   Allocated qword buffer
+ * @count:  Number of qwords requested
+ *
+ * Callers must ensure reads are aligned. When the call returns -ENODEV,
+ * the device has been removed and callers should unregister the telemetry
+ * endpoint.
+ *
+ * Return:
+ * * 0           - Success
+ * * -ENODEV	 - The device is not present.
+ * * -EINVAL	 - The offset is out out bounds
+ * * -EPIPE	 - The device was removed during the read. Data written
+ *		   but should be considered invalid.
+ */
+int pmt_telem_read(struct telem_endpoint *ep, u32 id, u64 *data,
+		   u32 count);
 
 /* Notifiers */
 

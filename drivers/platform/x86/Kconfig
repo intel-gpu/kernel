@@ -1225,33 +1225,6 @@ config INTEL_TELEMETRY
 	  directly via debugfs files. Various tools may use
 	  this interface for SoC state monitoring.
 
-config INTEL_PMT_TELEM
-	tristate "Intel PMT telemetry driver"
-	help
-	 The Intel PMT Telemetry driver provides access to hardware telemetry
-	 metrics on devices that support the feature.
-
-	 For more information, see
-	 <file:Documentation/ABI/testing/sysfs-class-pmt_telem>
-
-config INTEL_PMT_CRASHLOG
-	tristate "Intel PMT crashlog driver"
-	help
-	 The Intel PMT crashlog driver provides access to hardware crashlog
-	 capabilities on devices that support the feature.
-
-	 For more information, see
-	 <file:Documentation/ABI/testing/sysfs-class-pmt_crashlog>
-
-config INTEL_PMT_WATCHER
-	tristate "Intel PMT watcher driver"
-	help
-	 The Intel PMT Watcher driver provides access to hardware sampling and
-	 tracing capabilities on devices that support the feature.
-
-	 For more information, see
-	 <file:Documentation/ABI/testing/sysfs-class-pmt_watcher>
-
 config MLX_PLATFORM
 	tristate "Mellanox Technologies platform support"
 	depends on I2C && REGMAP
@@ -1317,6 +1290,42 @@ config I2C_MULTI_INSTANTIATE
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called i2c-multi-instantiate.
+
+config INTEL_PMT_CORE
+	tristate
+
+config INTEL_PMT_CRASHLOG
+	tristate "Intel Platform Monitoring Technology (PMT) Crashlog driver"
+	select INTEL_PMT_CORE
+	help
+	 The Intel Platform Monitoring Technology (PMT) crashlog driver provides
+	 access to hardware crashlog capabilities on devices that support the
+	 feature.
+
+	 For more information, see
+	 <file:Documentation/ABI/testing/sysfs-class-intel_pmt_crashlog>
+
+config INTEL_PMT_TELEMETRY
+	tristate "Intel Platform Monitoring Technology (PMT) Telemetry driver"
+	select INTEL_PMT_CORE
+	help
+	  The Intel Platform Monitory Technology (PMT) Telemetry driver provides
+	  access to hardware telemetry metrics on devices that support the
+	  feature.
+
+	  For more information, see
+	  <file:Documentation/ABI/testing/sysfs-class-intel_pmt_telem>
+
+config INTEL_PMT_WATCHER
+	tristate "Intel Platform Monitoring Technology (PMT) Watcher driver"
+	select INTEL_PMT_CORE
+	help
+	 The Intel Platform Monitoring Technology (PMT) Watcher driver provides
+	 access to hardware sampling and tracing capabilities on devices that
+	 support the feature.
+
+	 For more information, see
+	 <file:Documentation/ABI/testing/sysfs-class-intel_pmt_watcher>
 
 config INTEL_ATOMISP2_PM
 	tristate "Intel AtomISP2 dummy / power-management driver"
