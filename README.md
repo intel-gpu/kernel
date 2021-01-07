@@ -1,5 +1,3 @@
-# [intel.com](https://intel.com) Documentation
-
 # Building the kernel for the Intel(R) Iris(R) Xe MAX Graphics
 
 The latest kernel driver for the Intel Iris Xe MAX graphics adapter is
@@ -16,11 +14,10 @@ published.
 > this page is not recommended for use as the primary kernel in systems
 > configured with both an Intel Iris Xe graphics adapter and an Intel
 > Iris Xe MAX graphics adapter. On those systems, we recommend you
-> follow the instructions provided on [this guide](../index.html), which
+> follow the instructions provided on [this guide](https://dgpu-docs.intel.com/devices/iris-xe-max-graphics/index.html), which
 > uses a different kernel for each of the two adapters. If you try and
 > boot the kernel built on this page directly on a system with the Intel
 > Iris Xe graphics adapter, the system may lock up during boot.
-{: .note}
 
 ## Configure the host
 
@@ -111,7 +108,7 @@ Output should look similar to the following:
 
 You now have a kernel with support for the Intel Iris Xe MAX graphics adapter,
 and can install the latest compute and media packages, as documented in the
-[installation guides](../../installation-guides/ubuntu/ubuntu-focal.html).
+[installation guides](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html).
 
 ### Configure permissions to access GPU
 
@@ -162,42 +159,5 @@ you can verify that the media driver is working by using vainfo:
 sudo apt install vainfo
 vainfo
 ```
-
-# GPGPU Documents
-
-* [Installation guides](../../../installation-guides/index.html)
-* * [Red Hat](../../../installation-guides/redhat/index.html)
-* * * [Red Hat 8.2](../../../installation-guides/redhat/redhat-8.2.html)
-* * * [Red Hat 8.1](../../../installation-guides/redhat/redhat-8.1.html)
-* * [SUSE](../../../installation-guides/suse/index.html)
-* * * [SUSE 15 SP2](../../../installation-guides/suse/suse-15sp2.html)
-* * * [SUSE 15 SP1](../../../installation-guides/suse/suse-15sp1.html)
-* * [Ubuntu](../../../installation-guides/ubuntu/index.html)
-* * * [Ubuntu 20.04 (focal)](../../../installation-guides/ubuntu/ubuntu-focal.html)
-* * * [Ubuntu 18.04 (bionic)](../../../installation-guides/ubuntu/ubuntu-bionic.html)
-* * [Windows](../../../installation-guides/windows.html)
-* [Driver releases](../../../releases/index.html)
-* * [20201209](../../../releases/releases-20201209.html)
-* * [20201124](../../../releases/releases-20201124.html)
-* * [20201117](../../../releases/releases-20201117.html)
-* * [20201027](../../../releases/releases-20201027.html)
-* * [20201013](../../../releases/releases-20201013.html)
-* * [20200923](../../../releases/releases-20200923.0.html)
-* * [20200909](../../../releases/releases-20200909.0.html)
-* * [20200903](../../../releases/releases-20200903.0.html)
-* * [20200811](../../../releases/releases-20200811.0.html)
-* * [20200723](../../../releases/releases-20200723.0.html)
-* [Devices](../../index.html) <--
-* * [Intel Iris Xe MAX graphics](../index.html) <--
-* * * [Guides](index.html) <--
-* * * * [Blender](blender.html)
-* * * * [Building the Linux* kernel](building-the-kernel.html) <--
-* * * * [Media](media.html)
-* * [Full device table](../../hardware-table.html)
-* [Technologies](../../../technologies/index.html)
-* * [Level Zero](../../../technologies/level-zero.html)
-* * [Media](../../../technologies/media/index.html)
-* * [Open CL](../../../technologies/opencl.html)
-[text](building-the-kernel.txt)
 
 Copyright 2020 by Intel Corporation. All rights reserved.
