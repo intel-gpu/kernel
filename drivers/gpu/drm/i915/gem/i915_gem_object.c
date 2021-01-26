@@ -251,13 +251,14 @@ int i915_gem_object_migrate(struct drm_i915_gem_object *obj,
 		 * Occasionally i915_gem_object_wait() called inside
 		 * i915_gem_object_set_to_cpu_domain() get interrupted
 		 * and return -ERESTARTSYS, this will make migration
-		 * operation fail. So adding a non-interruptible wait
-		 * before changing the object domain.
+		 * operation fail. So adding a retry logic when the
+		 * -ERESTARTSYS error is returned.
 		 */
 		i915_gem_object_lock(donor);
-		err = i915_gem_object_wait(donor, 0, MAX_SCHEDULE_TIMEOUT);
-		if (!err)
-			err = i915_gem_object_set_to_cpu_domain(donor, false);
+retry:
+		err = i915_gem_object_set_to_cpu_domain(donor, false);
+		if (err == -ERESTARTSYS)
+			goto retry;
 		i915_gem_object_unlock(donor);
 		if (err)
 			goto err_put_donor;
@@ -1017,7 +1018,7 @@ int i915_window_blt_copy(struct drm_i915_gem_object *dst,
 		i915_insert_vma_pages(dst_vma, dst_is_lmem);
 		sg_unmark_end(last_sgl);
 
-		rq = intel_context_try_create_request(ce);
+		rq = intel_context_create_request(ce);
 		if (IS_ERR(rq)) {
 			err = PTR_ERR(rq);
 			break;
@@ -1052,7 +1053,6 @@ int i915_window_blt_copy(struct drm_i915_gem_object *dst,
 		blt_copied += cur_win_sz;
 		err = 0;
 		i915_request_put(rq);
-		flush_work(&i915->engine[BCS0]->retire_work);
 	} while (src->base.size != blt_copied);
 
 	src_vma->size = BLT_WINDOW_SZ;

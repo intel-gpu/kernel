@@ -700,6 +700,17 @@ static void dg1_ctx_workarounds_init(struct intel_engine_cs *engine,
 	/* Wa_22010493298 */
 	WA_SET_BIT_MASKED(HIZ_CHICKEN,
 			  DG1_HZ_READ_SUPPRESSION_OPTIMIZATION_DISABLE);
+
+	/*
+	 * Wa_14012131227
+	 *
+	 * Although the WA is described as causing corruption when using media
+	 * compressible render target, leaving RHWO enabled is also causing
+	 * gpu hang when using multiple concurrent render and media workloads.
+	 * Disable it completely for now.
+	 */
+	wa_masked_en(wal, GEN7_COMMON_SLICE_CHICKEN1,
+		     GEN9_RHWO_OPTIMIZATION_DISABLE);
 }
 
 static void

@@ -97,13 +97,14 @@ retry:
 		 * operation will return -ERESTARTSYS error code, which
 		 * causes user space code to fail.
 		 *
-		 * To avoid this problem, we add a non-interruptible
-		 * wait before setting object to cpu domain.
+		 * To avoid this problem, we add a retry logic when this
+		 * -ERESTARTSYS error code is caught.
 		 */
 		i915_gem_object_lock(obj);
-		ret = i915_gem_object_wait(obj, 0, MAX_SCHEDULE_TIMEOUT);
-		if (!ret)
-			ret = i915_gem_object_set_to_cpu_domain(obj, false);
+retry2:
+		ret = i915_gem_object_set_to_cpu_domain(obj, false);
+		if (ret == -ERESTARTSYS)
+			goto retry2;
 		i915_gem_object_unlock(obj);
 		if (ret) {
 			i915_gem_object_unbind(obj, I915_GEM_OBJECT_UNBIND_ACTIVE);
