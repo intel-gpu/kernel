@@ -27,6 +27,12 @@ Install packages necessary for building the Linux kernel from source:
 sudo apt install build-essential git gcc bison flex libssl-dev bc cpio \
   openssl lz4
 ```
+For openSUSE Linux, below the packages necessary
+
+```bash
+sudo zypper install patterns-devel-C-C++-devel_C_C++  patterns-devel-base-devel_kernel \
+  git bison flex libopenssl-devej bc cpio  openssl lz4
+```
 
 ## Download the kernel source and build it
 
